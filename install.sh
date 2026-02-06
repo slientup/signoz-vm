@@ -75,7 +75,12 @@ fi
 
 
 # OTel Collector 版本配置
-ARCH="amd64"
+# 检测系统架构
+if [ "$(uname -m)" = "arm64" ]; then
+    ARCH="arm64"
+else
+    ARCH="amd64"
+fi
 # ===========================================
 
 echo "--- 开始安装 OpenTelemetry Collector Contrib ---"
@@ -84,7 +89,7 @@ echo "Target SigNoz Endpoint: $SIGNOZ_ENDPOINT"
 # 1. 下载二进制文件
 if [ ! -f "/usr/local/bin/otelcol-contrib" ]; then
     echo "正在获取最新的 OTel Collector 版本..."
-    OTEL_VERSION=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/latest | grep -oP '"tag_name": "v\K[0-9.]+')
+    OTEL_VERSION=$(curl -s https://api.github.com/repos/open-telemetry/opentelemetry-collector-releases/releases/latest | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/' | head -1)
     
     if [ -z "$OTEL_VERSION" ]; then
         echo "❌ 错误: 无法获取最新版本号"
@@ -112,20 +117,20 @@ echo "配置 Config 文件..."
 mkdir -p /etc/otelcol-contrib/config
 
 # 复制主配置文件
-if [ ! -f "otel-collector-config.yaml" ]; then
-    echo "❌ 错误: 当前目录下未找到 otel-collector-config.yaml 文件"
+if [ ! -f "config/otel-collector-config.yaml" ]; then
+    echo "❌ 错误: 当前目录下未找到 config/otel-collector-config.yaml 文件"
     exit 1
 fi
-cp otel-collector-config.yaml /etc/otelcol-contrib/config/config.yaml
+cp config/otel-collector-config.yaml /etc/otelcol-contrib/config/config.yaml
 echo "✅ 已复制主配置文件"
 
 # 复制可选的扩展配置文件（PostgreSQL、Redis等）
 if [ "$CONFIG_FILES" = "auto" ]; then
     # 自动检测所有 otel-collector-*-config.yaml 文件（除了主config）
-    for config_file in otel-collector-*-config.yaml; do
-        if [ -f "$config_file" ] && [ "$config_file" != "otel-collector-config.yaml" ]; then
+    for config_file in config/otel-collector-*-config.yaml; do
+        if [ -f "$config_file" ] && [ "$(basename "$config_file")" != "otel-collector-config.yaml" ]; then
             cp "$config_file" /etc/otelcol-contrib/config/
-            echo "✅ 已复制 $config_file"
+            echo "✅ 已复制 $(basename "$config_file")"
         fi
     done
 else
@@ -133,9 +138,13 @@ else
     IFS=',' read -ra FILES <<< "$CONFIG_FILES"
     for config_file in "${FILES[@]}"; do
         config_file=$(echo "$config_file" | xargs)  # 移除前后空格
+        # 如果用户没有指定路径前缀，自动加上 config/
+        if [[ ! "$config_file" =~ ^config/ ]]; then
+            config_file="config/$config_file"
+        fi
         if [ -f "$config_file" ]; then
             cp "$config_file" /etc/otelcol-contrib/config/
-            echo "✅ 已复制 $config_file"
+            echo "✅ 已复制 $(basename "$config_file")"
         else
             echo "⚠️  警告: 文件不存在 - $config_file"
         fi
@@ -158,7 +167,7 @@ Group=root
 SupplementaryGroups=docker
 # 将安装时传入的变量写入服务配置
 Environment="SIGNOZ_ENDPOINT=${SIGNOZ_ENDPOINT}"
-ExecStart=/usr/local/bin/otelcol-contrib --config=/etc/otelcol-contrib/config/
+ExecStart=/usr/local/bin/otelcol-contrib --config /etc/otelcol-contrib/config/config.yaml
 Restart=always
 RestartSec=5s
 StandardOutput=journal
