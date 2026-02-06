@@ -1,0 +1,111 @@
+receivers:
+  # 1. 主机指标搜集
+  hostmetrics:
+    collection_interval: 60s
+    scrapers:
+      cpu: {}
+      disk: {}
+      load: {}
+      filesystem: {}
+      memory: {}
+      network: {}
+      nfs: {} 
+      paging: {}
+      process:
+        mute_process_name_error: true
+        mute_process_exe_error: true
+        mute_process_io_error: true
+      processes: {}
+      system: {}
+
+  # 2. 容器指标搜集
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    metrics:
+      container.cpu.utilization:
+        enabled: true
+      container.memory.percent:
+        enabled: true
+      container.network.io.usage.rx_bytes:
+        enabled: true
+      container.network.io.usage.tx_bytes:
+        enabled: true
+      container.network.io.usage.rx_dropped:
+        enabled: true
+      container.network.io.usage.tx_dropped:
+        enabled: true
+      container.memory.usage.limit:
+        enabled: true
+      container.memory.usage.total:
+        enabled: true
+      container.blockio.io_service_bytes_recursive:
+        enabled: true
+
+  # 3. 系统日志
+  journald:
+    directory: /var/log/journal
+    start_at: end
+
+  filelog/dockers:
+    include: [/var/lib/docker/containers/*/*-json.log]
+    poll_interval: 200ms
+    start_at: end
+    include_file_name: false
+    include_file_path: false
+    operators:
+      - id: container-parser
+        type: container
+        format: docker
+        add_metadata_from_filepath: false
+      - id: extract-service-name
+        type: regex_parser
+        parse_from: body
+        regex: 'service.name":\s*"(?P<svc>[^"]+)"'
+      - id: set-service-name
+        type: move
+        from: attributes.svc
+        to: resource["service.name"]
+        if: 'attributes.svc != nil'
+
+  # 4. Redis 直接采集
+  redis:
+    endpoint: ${REDIS_ENDPOINT}:6379
+    password: ${REDIS_PASSWORD}
+    collection_interval: 60s
+    timeout: 10s
+
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+  resourcedetection:
+    detectors: [env, system, docker]
+    timeout: 2s
+    override: false
+
+  attributes:
+    actions:
+      - key: service.name
+        value: redis-vm
+        action: insert
+      - key: environment
+        value: production
+        action: insert
+
+exporters:
+  otlp:
+    endpoint: "${SIGNOZ_ENDPOINT}"
+    tls:
+      insecure: false
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics, docker_stats, redis]
+      processors: [resourcedetection, batch, attributes]
+      exporters: [otlp]
+    logs:
+      receivers: [journald, filelog/dockers]
+      processors: [resourcedetection, batch]
+      exporters: [otlp]
