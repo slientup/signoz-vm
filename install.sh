@@ -42,7 +42,7 @@ EOF
 
 # ================= 参数解析 =================
 SIGNOZ_ENDPOINT=""
-CONFIG_FILES="auto"
+CONFIG_FILES=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -124,19 +124,11 @@ fi
 cp config/otel-collector-config.yaml /etc/otelcol-contrib/config/config.yaml
 echo "✅ 已复制主配置文件"
 
-# 复制可选的扩展配置文件（PostgreSQL、Redis等）
-if [ "$CONFIG_FILES" = "auto" ]; then
-    # 自动检测所有 otel-collector-*-config.yaml 文件（除了主config）
-    for config_file in config/otel-collector-*-config.yaml; do
-        if [ -f "$config_file" ] && [ "$(basename "$config_file")" != "otel-collector-config.yaml" ]; then
-            cp "$config_file" /etc/otelcol-contrib/config/
-            echo "✅ 已复制 $(basename "$config_file")"
-        fi
-    done
-else
-    # 根据用户指定的文件名复制
-    IFS=',' read -ra FILES <<< "$CONFIG_FILES"
-    for config_file in "${FILES[@]}"; do
+
+# 根据用户指定的文件名复制
+# 处理扩展配置文件：支持用户指定或自动检测 config/ 下的 YAML 文件（除主配置）
+IFS=',' read -ra FILES <<< "$CONFIG_FILES"
+  for config_file in "${FILES[@]}"; do
         config_file=$(echo "$config_file" | xargs)  # 移除前后空格
         # 如果用户没有指定路径前缀，自动加上 config/
         if [[ ! "$config_file" =~ ^config/ ]]; then
@@ -149,7 +141,7 @@ else
             echo "⚠️  警告: 文件不存在 - $config_file"
         fi
     done
-fi
+echo "配置文件准备完成。"
 
 # 3. 创建 Systemd 服务文件
 # 注意：这里我们将安装时的环境变量“固化”到 service 文件中
@@ -157,14 +149,12 @@ echo "创建 Systemd 服务..."
 cat <<EOF > /etc/systemd/system/otelcol-contrib.service
 [Unit]
 Description=OpenTelemetry Collector Contrib
-After=network.target docker.service
+After=network.target
 Requires=docker.service
 
 [Service]
 User=root
 Group=root
-# 确保可以访问Docker Socket
-SupplementaryGroups=docker
 # 将安装时传入的变量写入服务配置
 Environment="SIGNOZ_ENDPOINT=${SIGNOZ_ENDPOINT}"
 ExecStart=/usr/local/bin/otelcol-contrib --config /etc/otelcol-contrib/config/config.yaml

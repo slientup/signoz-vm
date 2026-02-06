@@ -74,7 +74,7 @@ processors:
     timeout: 10s
 
   resourcedetection:
-    detectors: [env, system, docker]
+    detectors: [env, system]
     timeout: 2s
     override: false
 
@@ -82,7 +82,7 @@ exporters:
   otlp:
     endpoint: "${SIGNOZ_ENDPOINT}" 
     tls:
-      insecure: false 
+      insecure: true 
 service:
   pipelines:
     metrics:
