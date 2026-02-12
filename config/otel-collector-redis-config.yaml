@@ -9,6 +9,8 @@ receivers:
       filesystem: {}
       memory:                         
         metrics:
+          system.memory.usage:
+            enabled: true
           system.memory.utilization:
             enabled: true
       network: {}
