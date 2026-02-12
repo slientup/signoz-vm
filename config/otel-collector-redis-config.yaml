@@ -84,13 +84,13 @@ processors:
     timeout: 2s
     override: false
 
-  attributes:
-    actions:
-      - key: service.name
-        value: redis-vm
+  resource/alicloud:
+    attributes:
+      - key: deployment.environment
+        value: prod
         action: insert
-      - key: environment
-        value: production
+      - key: cloud.provider
+        value: alibaba_cloud          
         action: insert
 
 exporters:
@@ -103,9 +103,9 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics, docker_stats, redis]
-      processors: [resourcedetection, batch, attributes]
+      processors: [resourcedetection, batch, resource/alicloud]
       exporters: [otlp]
     logs:
       receivers: [journald, filelog/dockers]
-      processors: [resourcedetection, batch]
+      processors: [resourcedetection, batch, resource/alicloud]
       exporters: [otlp]

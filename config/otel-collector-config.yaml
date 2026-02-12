@@ -78,6 +78,16 @@ processors:
     timeout: 2s
     override: false
 
+  resource/alicloud:
+    attributes:
+      - key: deployment.environment
+        value: prod
+        action: insert
+      - key: cloud.provider
+        value: alibaba_cloud          
+        action: insert
+  
+
 exporters:
   otlp:
     endpoint: "${SIGNOZ_ENDPOINT}" 
@@ -87,9 +97,9 @@ service:
   pipelines:
     metrics:
       receivers: [hostmetrics, docker_stats]
-      processors: [resourcedetection, batch]
+      processors: [resourcedetection, resource/alicloud, batch]
       exporters: [otlp]
     logs:
       receivers: [journald, filelog/dockers]
-      processors: [resourcedetection, batch]
+      processors: [resourcedetection,resource/alicloud,batch]
       exporters: [otlp]
