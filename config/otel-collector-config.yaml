@@ -7,7 +7,10 @@ receivers:
       disk: {}
       load: {}
       filesystem: {}
-      memory: {}
+      memory:                         
+        metrics:
+          system.memory.utilization:
+            enabled: true
       network: {}
       nfs: {} 
       paging: {}
