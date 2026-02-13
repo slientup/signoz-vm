@@ -45,6 +45,11 @@ receivers:
         enabled: true
       container.blockio.io_service_bytes_recursive:
         enabled: true
+      container.restarts:
+        enabled: true
+      container.uptime:
+        enabled: true
+
 
 
   # 3. 系统日志
