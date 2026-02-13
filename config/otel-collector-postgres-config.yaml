@@ -78,11 +78,11 @@ receivers:
 
   # 4. PostgreSQL 直接采集
   postgresql:
-    endpoint: ${POSTGRES_ENDPOINT}:5432
+    endpoint: 127.0.0.1:5432
     transport: tcp
-    username: ${POSTGRES_USER}
-    password: ${POSTGRES_PASSWORD}
-    database: ${POSTGRES_DB}
+    username: monitoring
+    password: monitor@2026
+    database: []
     collection_interval: 60s
     tls:
       insecure: true
@@ -112,7 +112,7 @@ processors:
       - key: cloud.provider
         value: alibaba_cloud          
         action: insert
-  
+
 exporters:
   otlp:
     endpoint: "${SIGNOZ_ENDPOINT}"
